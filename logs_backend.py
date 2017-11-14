@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 import psycopg2
 
 
@@ -15,13 +16,15 @@ class LogDatabase():
 
         self.__DBNAME = 'news'
 
-    def connect(self):
+    def __connect(self):
         """ Connects to the database
 
         """
-
-        self.__connection = psycopg2.connect(database=self.__DBNAME)
-        self.__cursor = self.__connection.cursor()
+        try:
+            self.__connection = psycopg2.connect(database=self.__DBNAME)
+            self.__cursor = self.__connection.cursor()
+        except:
+            print("Failed to connect to database")
 
     def commit(self):
         """ This commits the connection
@@ -30,7 +33,7 @@ class LogDatabase():
 
         self.__connection.commit()
 
-    def close(self):
+    def __close(self):
         """ This closes the cursor and the connection
 
         """
@@ -39,6 +42,7 @@ class LogDatabase():
         self.__connection.close()
 
     def __execute_query(self, query):
+        self.__connect()
         self.__cursor.execute(query)
 
     def most_popular_articles(self):
@@ -76,6 +80,8 @@ class LogDatabase():
         for (title, views) in self.__cursor:
             print("\"{}\" had {} views".format(title, views))
 
+        self.__close()
+
     def most_popular_authors(self):
         """ This function prints a text-based report of the most popular authors
 
@@ -83,8 +89,7 @@ class LogDatabase():
 
         # This query works similar to finding the most popular articles
         # Except it joins the authors table as well and groups by the author
-        # name rather than the article titlea
-
+        # name rather than the article title
         query = """WITH filenames AS (select reverse(split_part(reverse(path),'/',1))
                 AS filename FROM log)
                 SELECT name, COUNT(filename) FROM filenames
@@ -101,6 +106,8 @@ class LogDatabase():
         print("Most Popular Authors:")
         for (name, views) in self.__cursor:
             print("{} had {} views".format(name, views))
+
+        self.__close()
 
     def errored_requests(self):
         """ This function shows the dates which more than 1% of the requests were
@@ -133,20 +140,15 @@ class LogDatabase():
         # Iterate through cursor
         print("Days which had errors > 1%:")
         for (date, ratio) in self.__cursor:
-            print("{}: Error Ratio of {}".format(date, ratio))
+            print("{}: Error Ratio of {}%".format(date, ratio*100))
 
-logdb = LogDatabase()
+        self.__close()
 
-# Connect to the DB
-logdb.connect()
+# Don't run the following code if this file is imported
+if __name__ == "__main__":
+    logdb = LogDatabase()
 
-# Reports
-logdb.most_popular_articles()
-logdb.most_popular_authors()
-logdb.errored_requests()
-
-# Commit - is it best practice to commit even if no changes have been made?
-logdb.commit()
-
-# Close everything
-logdb.close()
+    # Reports
+    logdb.most_popular_articles()
+    logdb.most_popular_authors()
+    logdb.errored_requests()
